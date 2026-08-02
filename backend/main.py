@@ -7,7 +7,7 @@ app = FastAPI(title="Seller Compliance Assistant API")
 # Izinkan CORS agar Frontend (Next.js) bisa terhubung ke Backend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -16,31 +16,26 @@ app.add_middleware(
 class AnalyzeRequest(BaseModel):
     text: str
 
-@app.get("/api")
+@app.get("/")
 def read_root():
     return {"status": "ok", "message": "API Seller Compliance Assistant BPOM Aktif!"}
 
-@app.post("/api/analyze")
+@app.post("/analyze")
 def analyze_text(payload: AnalyzeRequest):
-    # Rule-based BPOM sederhana untuk MVP awal
-    forbidden_words = ["mengobati", "pasti ampuh", "100% manjur", "tanpa efek samping", "menyembuhkan"]
+    forbidden_words = ["mengobati", "pasti ampuh", "100% manjur", "tanpa efek samping"]
     
-    found_issues = []
+    issues = []
     text_lower = payload.text.lower()
     
     for word in forbidden_words:
         if word in text_lower:
-            found_issues.append({
+            issues.append({
                 "keyword": word,
-                "type": "OVERCLAIM",
-                "reason": f"Penggunaan kata '{word}' melanggar aturan klaim khasiat berlebihan menurut indikasi BPOM."
+                "category": "Overclaim / Klaim Berisiko"
             })
             
-    risk_level = "HIGH" if len(found_issues) > 0 else "SAFE"
-    
+    # Kembalikan kunci dengan nama "issues" (bukan "found_issues")
     return {
         "status": "success",
-        "risk_level": risk_level,
-        "total_issues": len(found_issues),
-        "issues": found_issues
+        "issues": issues
     }
