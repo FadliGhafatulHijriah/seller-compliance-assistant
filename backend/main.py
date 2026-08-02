@@ -16,7 +16,7 @@ app.add_middleware(
 class AnalyzeRequest(BaseModel):
     text: str
 
-@app.get("/")
+@app.get("/api")
 def read_root():
     return {"status": "ok", "message": "API Seller Compliance Assistant BPOM Aktif!"}
 
