@@ -4,15 +4,15 @@ import { useState } from "react";
 
 interface Issue {
   keyword: string;
-  type: string;
-  reason: string;
+  category?: string;
+  reason?: string;
 }
 
 interface AnalysisResult {
   status: string;
-  risk_level: string;
-  total_issues: number;
+  status_label?: string;
   issues: Issue[];
+  total_issues?: number;
 }
 
 export default function Home() {
@@ -123,20 +123,31 @@ export default function Home() {
 
             {result && (
               <div className="space-y-4">
-                {/* Status Badge */}
+                {/* Status Badge Dinamis */}
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-slate-700">
                     Tingkat Risiko:
                   </span>
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-bold ${
-                      result.risk_level === "HIGH"
-                        ? "bg-red-100 text-red-700 border border-red-300"
-                        : "bg-green-100 text-green-700 border border-green-300"
-                    }`}
-                  >
-                    {result.risk_level}
-                  </span>
+
+                  {(!result.issues || result.issues.length === 0) ? (
+                    /* Kondisi 0 Issue -> AMAN / PATUH (Hijau) */
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-300">
+                      <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                      Aman / Patuh
+                    </span>
+                  ) : result.issues.length <= 2 ? (
+                    /* Kondisi 1-2 Issues -> SEDANG (Kuning / Oranye) */
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                      <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                      Sedang ({result.issues.length} Temuan)
+                    </span>
+                  ) : (
+                    /* Kondisi >= 3 Issues -> TIDAK PATUH (Merah) */
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-300">
+                      <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                      Tidak Patuh ({result.issues.length} Temuan)
+                    </span>
+                  )}
                 </div>
 
                 {/* Teks dengan Highlight */}
@@ -145,10 +156,10 @@ export default function Home() {
                 </div>
 
                 {/* Detail Peringatan */}
-                {result.issues.length > 0 && (
+                {result.issues && result.issues.length > 0 ? (
                   <div className="space-y-2">
                     <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                      Detail Peringatan ({result.total_issues}):
+                      Detail Peringatan ({result.issues.length}):
                     </h3>
                     {result.issues.map((issue, idx) => (
                       <div
@@ -158,9 +169,13 @@ export default function Home() {
                         <p className="font-semibold">
                           Kata Kunci: "{issue.keyword}"
                         </p>
-                        <p>{issue.reason}</p>
+                        <p>{issue.reason || issue.category}</p>
                       </div>
                     ))}
+                  </div>
+                ) : (
+                  <div className="p-3 bg-green-50 border-l-4 border-green-500 text-xs text-green-700 rounded-r">
+                    ✅ Tidak ditemukan klaim berlebihan atau kata berisiko pada teks ini.
                   </div>
                 )}
               </div>
