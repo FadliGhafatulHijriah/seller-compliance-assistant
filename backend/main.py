@@ -40,6 +40,7 @@ model_bert.eval()
 
 # 4. Inisialisasi Basis Pengetahuan Edukasi & Rekomendasi Resmi BPOM No. 3/2022
 EDUKASI_REKOMENDASI_BPOM = {
+    # Klaim Medis & Overclaim
     "mengobati": "Klaim penyembuhan adalah ranah obat. Gunakan: 'Membantu merawat / menenangkan kondisi kulit'.",
     "menyembuhkan": "Klaim kosmetika tidak boleh menjanjikan kesembuhan. Gunakan: 'Membantu merawat kelembapan kulit'.",
     "meredakan": "Gunakan klaim kosmetika yang diizinkan: 'Memberikan rasa sejuk dan nyaman pada kulit'.",
@@ -54,8 +55,15 @@ EDUKASI_REKOMENDASI_BPOM = {
     "100% manjur": "Klaim persentase kesembuhan tanpa uji klinis dilarang. Gunakan klaim manfaat wajar.",
     "tanpa efek samping": "Klaim keamanan absolut dilarang BPOM karena reaksi kulit bersifat individual.",
     "infeksi": "Istilah infeksi/penyakit dilarang pada kosmetik. Gunakan: 'Menjaga kebersihan dan higienitas kulit'.",
-}
 
+    # Klaim Garansi Waktu / Hasil Instan (Dilarang BPOM No. 3/2022)
+    "dalam seminggu": "Janji durasi hasil instan dilarang tanpa uji klinis terakreditasi. Gunakan: 'Dengan penggunaan teratur'.",
+    "dalam 7 hari": "Klaim durasi hasil spesifik dilarang BPOM. Gunakan: 'Membantu merawat kulit secara berkala'.",
+    "dalam sekejap": "Klaim perubahan seketika dilarang BPOM. Gunakan klaim manfaat realistis.",
+    "instan": "Hindari kata instan untuk efek permanen. Gunakan: 'Memberikan efek tampilan cerah seketika (tone-up)' jika hanya efek dekoratif.",
+    "permanen": "Kosmetika tidak dapat memberikan hasil permanen. Hapus klaim ini.",
+    "hasil kilat": "Klaim superlatif waktu dilarang oleh regulasi BPOM."
+}
 # 5. Inisialisasi Automaton Aho-Corasick (Bahan Dilarang & Frasa BPOM)
 rules_automaton = ahocorasick.Automaton()
 
@@ -138,19 +146,19 @@ def analyze_text(payload: AnalyzeRequest):
     # 4. Soft Voting Ensemble (60% IndoBERT + 40% LogReg)
     ensemble_score = (0.60 * prob_bert) + (0.40 * prob_log)
 
-    # 5. Rule-Based Override jika ditemukan pelanggaran aturan pasti
+   # 5. Rule-Based Override jika ditemukan kata berisiko
     if issues:
-        ensemble_score = max(ensemble_score, 0.95)
+        ensemble_score = max(ensemble_score, 0.85)
 
     issue_count = len(issues)
 
-    # 6. Status Label untuk Komponen Frontend Next.js
-    if ensemble_score >= 0.70 or issue_count >= 3:
+    # 6. Status Label dengan threshold ketat & konsisten
+    if ensemble_score >= 0.65 or issue_count >= 2:
         status_label = "Tidak Patuh"
-        summary_rec = "Ditemukan pelanggaran serius terhadap regulasi BPOM. Segera ganti kata-kata yang ditandai merah sesuai saran edukasi."
-    elif ensemble_score >= 0.35 or issue_count > 0:
+        summary_rec = "Ditemukan klaim terlarang atau janji hasil instan yang melanggar Peraturan BPOM No. 3 Tahun 2022."
+    elif ensemble_score >= 0.20 or issue_count == 1:
         status_label = "Sedang"
-        summary_rec = "Deskripsi mengandung klaim berisiko. Tinjau kembali rekomendasi frasa sebelum menerbitkan produk."
+        summary_rec = "Deskripsi mengandung indikasi klaim berisiko. Disarankan menyesuaikan frasa promosi."
     else:
         status_label = "Aman / Patuh"
         summary_rec = "Deskripsi produk memenuhi kaidah kepatuhan kosmetika regulasi BPOM No. 3 Tahun 2022."
