@@ -216,3 +216,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Abaikan file model IndoBERT dan dataset besar dari Git
+backend/saved_models/
+backend/dataset/
+*.safetensors
+*.bin
+*.joblib
