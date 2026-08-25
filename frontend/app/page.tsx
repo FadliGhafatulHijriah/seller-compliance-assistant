@@ -52,32 +52,58 @@ export default function Home() {
     } catch (error) {
       console.error("Error analyzing text:", error);
       alert(
-        "Gagal terhubung ke Backend FastAPI. Pastikan server backend Uvicorn sedang berjalan di port 8000!"
+        "Gagal terhubung ke Backend FastAPI. Pastikan server backend sedang berjalan di port 8000!"
       );
     } finally {
       setLoading(false);
     }
   };
 
-  // Fungsi untuk highlight kata berisiko pada teks
-  const renderHighlightedText = () => {
-    if (!result || result.issues.length === 0)
-      return <p className="text-gray-700">{text}</p>;
+  // Helper untuk membuat regex yang toleran terhadap leetspeak dan pemisah karakter
+  const buildFlexiblePattern = (keyword: string) => {
+    const charMap: { [key: string]: string } = {
+      a: "[a4@]",
+      i: "[i1!|]",
+      e: "[e3]",
+      o: "[o0]",
+      s: "[s5$]",
+      b: "[b8]",
+      g: "[g9]",
+      t: "[t7]",
+    };
 
-    const keywords = result.issues.map((i) => i.keyword.toLowerCase());
-    // Escape string regex untuk keamanan pencocokan kata
-    const escapedKeywords = keywords.map(kw => kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-    const regex = new RegExp(`(${escapedKeywords.join("|")})`, "gi");
-    const parts = text.split(regex);
+    return keyword
+      .split("")
+      .map((char) => {
+        const lower = char.toLowerCase();
+        const pattern = charMap[lower] || lower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        return pattern;
+      })
+      .join("[-_\\s]*");
+  };
+
+  // Fungsi highlight kata berisiko pada teks
+  const renderHighlightedText = () => {
+    if (!result || !result.issues || result.issues.length === 0) {
+      return <p className="text-slate-700">{text}</p>;
+    }
+
+    const patterns = result.issues.map((i) => buildFlexiblePattern(i.keyword));
+    const combinedRegex = new RegExp(`(${patterns.join("|")})`, "gi");
+    const parts = text.split(combinedRegex);
 
     return (
-      <p className="text-gray-800 leading-relaxed">
+      <p className="text-slate-800 leading-relaxed">
         {parts.map((part, index) => {
-          const isForbidden = keywords.includes(part.toLowerCase());
-          return isForbidden ? (
+          const isMatch = result.issues.some((issue) => {
+            const regexSingle = new RegExp(`^${buildFlexiblePattern(issue.keyword)}$`, "i");
+            return regexSingle.test(part);
+          });
+
+          return isMatch ? (
             <mark
               key={index}
-              className="bg-red-200 text-red-800 font-semibold px-1 rounded mx-0.5"
+              className="bg-rose-200 text-rose-800 font-semibold px-1 rounded mx-0.5"
             >
               {part}
             </mark>
@@ -92,18 +118,28 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-slate-50 p-6 md:p-10 font-sans">
       <div className="max-w-5xl mx-auto space-y-6">
+        {/* Header dengan Logo Resmi SCA */}
         <header className="border-b border-slate-200 pb-4">
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-slate-800">
-              🛡️ Seller Compliance Assistant (BPOM)
-            </h1>
-            <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded border border-blue-200">
-              AI IndoBERT Engine
-            </span>
+          <div className="flex items-center gap-3">
+            <img
+              src="/LogoSCA.png"
+              alt="Logo SCA"
+              className="w-10 h-10 rounded-lg object-cover shadow-sm border border-slate-200"
+            />
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-bold text-slate-800">
+                  Seller Compliance Assistant (BPOM)
+                </h1>
+                <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded border border-blue-200">
+                  AI IndoBERT Engine
+                </span>
+              </div>
+              <p className="text-slate-600 text-sm mt-0.5">
+                Deteksi dini klaim berlebihan (overclaim) & bahan dilarang sebelum memasarkan produk ke e-commerce.
+              </p>
+            </div>
           </div>
-          <p className="text-slate-600 text-sm mt-1">
-            Deteksi dini klaim berlebihan (overclaim) & bahan dilarang sebelum memasarkan produk ke e-commerce.
-          </p>
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -115,14 +151,14 @@ export default function Home() {
               </h2>
               <span className="text-xs text-slate-400">{text.length} karakter</span>
             </div>
-            
+
             <textarea
               className="w-full h-56 p-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-slate-800"
-              placeholder="Contoh: Krim pencerah wajah pasti ampuh mengobati jerawat dan flek hitam secara instan tanpa efek samping..."
+              placeholder="Contoh: Krim pencerah wajah pasti ampuh mengobati flek hitam dalam seminggu..."
               value={text}
               onChange={(e) => setText(e.target.value)}
             />
-            
+
             <button
               onClick={handleAnalyze}
               disabled={loading || !text.trim()}
@@ -162,19 +198,19 @@ export default function Home() {
                 <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-slate-50 border border-slate-200 rounded-lg">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-semibold text-slate-500 uppercase">Status:</span>
-                    {result.status_label === "Aman / Patuh" ? (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-300">
-                        <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                    {result.total_issues === 0 && result.risk_score < 35 ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 border border-emerald-300">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                         Aman / Patuh BPOM
                       </span>
-                    ) : result.status_label === "Sedang" ? (
+                    ) : result.total_issues === 1 || (result.risk_score >= 20 && result.risk_score < 65) ? (
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
                         <span className="w-2 h-2 rounded-full bg-amber-500"></span>
                         Klaim Berisiko ({result.total_issues} Temuan)
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-300">
-                        <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-700 border border-rose-300">
+                        <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
                         Pelanggaran Regulasi ({result.total_issues} Temuan)
                       </span>
                     )}
@@ -182,7 +218,14 @@ export default function Home() {
 
                   <div className="text-right">
                     <span className="text-xs text-slate-500 block">Skor Risiko Pelanggaran:</span>
-                    <span className={`text-sm font-bold ${result.risk_score >= 70 ? 'text-red-600' : result.risk_score >= 35 ? 'text-amber-600' : 'text-green-600'}`}>
+                    <span
+                      className={`text-sm font-bold ${result.total_issues === 0 && result.risk_score < 35
+                        ? "text-emerald-600"
+                        : result.total_issues === 1 || (result.risk_score >= 20 && result.risk_score < 65)
+                          ? "text-amber-600"
+                          : "text-rose-600"
+                        }`}
+                    >
                       {result.risk_score}%
                     </span>
                   </div>
@@ -202,13 +245,13 @@ export default function Home() {
                     {result.issues.map((issue, idx) => (
                       <div
                         key={idx}
-                        className="p-3 bg-red-50 border-l-4 border-red-500 text-xs text-slate-700 rounded-r space-y-1"
+                        className="p-3 bg-rose-50 border-l-4 border-rose-500 text-xs text-slate-700 rounded-r space-y-1"
                       >
                         <div className="flex justify-between items-center">
-                          <span className="font-bold text-red-700">
+                          <span className="font-bold text-rose-700">
                             Frasa: "{issue.keyword}"
                           </span>
-                          <span className="bg-red-200 text-red-800 px-2 py-0.5 rounded text-[10px] font-semibold">
+                          <span className="bg-rose-200 text-rose-800 px-2 py-0.5 rounded text-[10px] font-semibold">
                             {issue.category || issue.reason}
                           </span>
                         </div>
@@ -222,8 +265,8 @@ export default function Home() {
                     ))}
                   </div>
                 ) : (
-                  <div className="p-3 bg-green-50 border-l-4 border-green-500 text-xs text-green-700 rounded-r">
-                    ✅ {result.summary_recommendation || "Tidak ditemukan klaim berlebihan atau kata berisiko pada teks ini."}
+                  <div className="p-3 bg-emerald-50 border-l-4 border-emerald-500 text-xs text-emerald-700 rounded-r">
+                    ✅ {result.summary_recommendation || "Deskripsi produk memenuhi kaidah kepatuhan kosmetika regulasi BPOM No. 3 Tahun 2022."}
                   </div>
                 )}
               </div>
